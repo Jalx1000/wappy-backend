@@ -1,11 +1,18 @@
 NODE_ENV=development
 APP_PORT=3000
-APP_NAME="NestJS API"
+APP_NAME="Wappy API"
 API_PREFIX=api
 APP_FALLBACK_LANGUAGE=en
 APP_HEADER_LANGUAGE=x-custom-lang
 FRONTEND_DOMAIN=http://localhost:3000
 BACKEND_DOMAIN=http://localhost:3000
+
+# Multi-tenancy
+# Root domain for wildcard subdomains (acme.wappy.dev -> slug "acme").
+# In dev, leave as localhost and use header x-workspace-id.
+APP_ROOT_DOMAIN=wappy.dev
+TENANT_HEADER=x-workspace-id
+TENANT_RESOLUTION_CACHE_TTL=60
 
 DATABASE_TYPE=postgres
 DATABASE_HOST=postgres
@@ -23,12 +30,18 @@ DATABASE_CERT=
 DATABASE_URL=
 
 # Support "local", "s3", "s3-presigned"
+# For Cloudflare R2 use "s3-presigned" and set AWS_S3_ENDPOINT below.
 FILE_DRIVER=local
 ACCESS_KEY_ID=
 SECRET_ACCESS_KEY=
-AWS_S3_REGION=
-AWS_DEFAULT_S3_BUCKET=
+AWS_S3_REGION=auto
+AWS_DEFAULT_S3_BUCKET=wappy-attachments-dev
+# Cloudflare R2 endpoint: https://<accountId>.r2.cloudflarestorage.com
+AWS_S3_ENDPOINT=
+AWS_S3_FORCE_PATH_STYLE=true
 
+# Mail provider: "smtp" (nodemailer + maildev/SMTP) or "resend"
+MAIL_PROVIDER=smtp
 MAIL_HOST=maildev
 MAIL_PORT=1025
 MAIL_USER=
@@ -36,9 +49,12 @@ MAIL_PASSWORD=
 MAIL_IGNORE_TLS=true
 MAIL_SECURE=false
 MAIL_REQUIRE_TLS=false
-MAIL_DEFAULT_EMAIL=noreply@example.com
-MAIL_DEFAULT_NAME=Api
+MAIL_DEFAULT_EMAIL=noreply@wappy.dev
+MAIL_DEFAULT_NAME=Wappy
 MAIL_CLIENT_PORT=1080
+
+# Resend (used when MAIL_PROVIDER=resend). Free tier: 3000 emails/mo, 100/day.
+RESEND_API_KEY=
 
 AUTH_JWT_SECRET=secret
 AUTH_JWT_TOKEN_EXPIRES_IN=15m
@@ -58,3 +74,51 @@ GOOGLE_CLIENT_SECRET=
 APPLE_APP_AUDIENCE=[]
 
 WORKER_HOST=redis://redis:6379/1
+
+# Redis (cache, rate-limit, socket.io adapter)
+REDIS_URL=redis://redis:6379/0
+
+# Rate limiting (per IP / per workspace)
+RATE_LIMIT_TTL=60
+RATE_LIMIT_MAX=120
+
+# Real-time / WebSockets
+WS_NAMESPACE=/rt
+SOCKET_IO_REDIS_ADAPTER_ENABLED=true
+
+# Cloudflare / proxy
+TRUST_PROXY=true
+REAL_IP_HEADER=CF-Connecting-IP
+
+# Meta (Facebook/Instagram/WhatsApp Cloud API) - app-level credentials.
+# Per-tenant credentials live in ChannelAccount (DB, encrypted).
+# Workspace owners pay Meta directly for WhatsApp conversations.
+META_APP_ID=
+META_APP_SECRET=
+META_WEBHOOK_VERIFY_TOKEN=
+
+# AI Copilot - provider selection: "local" or "anthropic"
+LLM_PROVIDER=local
+
+# Local LLM via Ollama / vLLM on your GPU
+LLM_LOCAL_BASE_URL=http://host.docker.internal:11434
+LLM_LOCAL_MODEL=llama3.1:8b-instruct
+
+# Anthropic (fallback). Get key at https://console.anthropic.com
+ANTHROPIC_API_KEY=
+ANTHROPIC_MODEL=claude-haiku-4-5-20251001
+
+# Per-workspace monthly spend cap in USD for LLM usage.
+# Enforced via Redis counter: llm:usage:{workspaceId}:{yyyy-mm}
+# Reaching the cap returns 402 Payment Required.
+LLM_USD_CAP_PER_WORKSPACE=5
+
+# Observability
+LOG_LEVEL=info
+# Glitchtip / Sentry-compatible DSN (leave empty to disable error reporting)
+SENTRY_DSN=
+# Prometheus metrics endpoint (mounted at /metrics)
+METRICS_ENABLED=true
+
+# Outbound webhooks (HMAC signing secret for X-Wappy-Signature header)
+WEBHOOK_SIGNING_SECRET=
