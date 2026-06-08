@@ -25,12 +25,16 @@
 
 ### [team-lead] WAPPY-00-01 — Kickoff + setup planning operativo
 - **Puntos**: 1
+- **Estado**: `done` (2026-06-08)
 - **Depende de**: —
 - **Descripción**: Revisar planning completo con founder. Crear board de tareas (Linear/GitHub Projects/spreadsheet — lo que use el founder). Importar las tareas del sprint con IDs `WAPPY-00-XX`. Definir cadencia de daily check-in (15 min self-update).
 - **Criterios de aceptación**:
-  - [ ] Board del sprint creado con 14 tareas y sus dependencias.
-  - [ ] Founder confirma cadencia diaria.
-  - [ ] Calendario tiene bloqueado el slot demo + retro al final del sprint.
+  - [x] Board del sprint creado con 14 tareas y sus dependencias. → `planning/board.md`
+  - [x] Grafo de dependencias + wave plan documentados en `planning/board.md`.
+  - [x] Spawn prompts para Wave 1 entregados al founder.
+  - [ ] Founder confirma cadencia diaria. (pendiente confirmación verbal)
+  - [ ] Calendario tiene bloqueado el slot demo + retro al final del sprint. (pendiente input de founder con fecha objetivo)
+- **Nota de cierre**: Board actualizado. Wave 1 (5 ramas paralelas) listo para spawn. Slots demo/retro pendientes de fecha objetivo del founder.
 
 ### [team-lead] WAPPY-00-14 — Demo + retro
 - **Puntos**: 1
