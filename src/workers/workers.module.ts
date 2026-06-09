@@ -14,10 +14,9 @@ import { HealthPingScheduler } from './health-ping.scheduler';
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
         // WORKER_HOST is a full Redis URL (e.g. redis://redis:6379/1)
-        const workerHost = configService.get<string>(
-          'WORKER_HOST',
-          'redis://localhost:6379/1',
-        );
+        const workerHost =
+          configService.get<string>('WORKER_HOST', { infer: true }) ??
+          'redis://localhost:6379/1';
         const url = new URL(workerHost);
         return {
           connection: {

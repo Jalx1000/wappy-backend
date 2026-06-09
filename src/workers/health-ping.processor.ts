@@ -6,8 +6,9 @@ import { Job } from 'bullmq';
 export class HealthPingProcessor extends WorkerHost {
   private readonly logger = new Logger(HealthPingProcessor.name);
 
-  async process(_job: Job): Promise<void> {
-    this.logger.log('worker alive');
+  // eslint-disable-next-line @typescript-eslint/require-await
+  async process(job: Job): Promise<void> {
+    this.logger.log(`worker alive (job ${job.id})`);
   }
 
   @OnWorkerEvent('completed')
