@@ -1,4 +1,6 @@
 {
   "confirmEmail": "Confirmar correo electrónico",
-  "resetPassword": "Restablecer contraseña"
+  "resetPassword": "Restablecer contraseña",
+  "ok": "OK",
+  "created": "Creado"
 }
