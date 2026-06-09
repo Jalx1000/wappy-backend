@@ -82,3 +82,48 @@ Repository methods should be single-purpose (`findByEmail`, `findByIds`) rather 
 
 - Unit tests: `*.spec.ts` colocated with source under `src/`; Jest config is inline in `package.json`.
 - E2E tests: `test/**/*.e2e-spec.ts`, split into `test/admin/` and `test/user/`. They hit a real running API (default `http://localhost:3000`) — start the stack first (`docker-compose.relational.test.yaml` is what `test:e2e:relational:docker` uses) or use that wrapper script which builds the image, waits for the API, runs Jest inside the container, and tears down.
+
+## Project layout
+
+### System feature modules — Hygen-generated
+
+Generated with `npm run generate:resource:relational` and `npm run add:property:to-relational`. These follow the Hexagonal layout described in [Architecture](#architecture) above. Examples already in the repo: `src/users/`, `src/files/`, `src/auth/`, `src/session/`.
+
+**Do not hand-write these.** The generator owns the layout; hand-written files diverge silently.
+
+### Wappy cross-cutting modules — hand-written, NOT Hygen-generated
+
+These implement platform-wide concerns that span tenants or drive runtime behaviour. They do not follow the Hygen template because their shape is unique and load-bearing per the locked ADRs.
+
+| Directory | Purpose |
+| --- | --- |
+| `src/tenancy/` | Schema-per-tenant (ADR-001): `TenantContext` via `AsyncLocalStorage`, `search_path` interceptor, DDL engine for tenant schema creation, TypeORM connection pool integration. |
+| `src/metadata/` | Custom Objects runtime (ADR-003): `ObjectDefinition`, `FieldDefinition`, `RelationDefinition` — stored in `core` schema. Drives DDL operations (`CREATE TABLE`, `ALTER TABLE`) against each tenant schema. |
+| `src/auto-api/` | Auto-API generator (ADR-004): reads metadata at boot and on every `metadata.changed` event, registers REST routes and GraphQL types dynamically in the Nest router. Contains `MetadataQueryService` (filter/sort/pagination engine) and OpenAPI per-workspace spec builder. |
+| `src/module-registry/` | Per-workspace feature flags: tracks which modules (e.g., `calendar`, `bot-builder`, `campaigns`) are enabled for a given workspace/plan. Guards and resolvers consult it before dispatching to feature modules. |
+
+Why separate from Hygen modules: each of these crosses the tenant boundary or drives runtime meta-behaviour that no single Hexagonal feature module can own. Their ports are at the application layer, not the persistence layer.
+
+### BullMQ workers
+
+`src/workers/` — long-running queue processors (BullMQ consumers). These are **not** NestJS feature modules: they are standalone processor classes registered with `BullModule`. They import domain services through ports; they never import TypeORM entities directly.
+
+Naming: `src/workers/<queue-name>.processor.ts`.
+
+### CLI scripts
+
+`scripts/` — one-off dev utilities, seed runners, and migration helpers that run outside the NestJS application context (plain Node.js or `ts-node`). Examples: seed data for a fresh tenant, schema snapshot diffing, dev token generator.
+
+These are **not** part of the application bundle. They may import domain types but never import NestJS modules or decorators.
+
+### Naming conventions
+
+| Construct | Convention | Example |
+| --- | --- | --- |
+| Classes / NestJS modules | PascalCase | `TenantContextService`, `AutoApiModule` |
+| Files | kebab-case | `tenant-context.service.ts`, `auto-api.module.ts` |
+| Repository ports | `*.port.ts` suffix | `metadata-object.repository.port.ts` |
+| Persistence adapters | `*.adapter.ts` suffix | `metadata-object.typeorm.adapter.ts` |
+| BullMQ processors | `*.processor.ts` suffix | `ddl-migration.processor.ts` |
+| DTOs | `create-*.dto.ts`, `update-*.dto.ts` | `create-object-definition.dto.ts` |
+| Domain objects | match the domain noun, no suffix | `ObjectDefinition`, `FieldDefinition` |
