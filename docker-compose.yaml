@@ -37,6 +37,12 @@ services:
       dockerfile: Dockerfile
     ports:
       - ${APP_PORT}:${APP_PORT}
+    environment:
+      DATABASE_HOST: postgres
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      - postgres
+      - redis
 
   # AI profile — start with: docker compose --profile ai up
   ollama:
