@@ -31,6 +31,7 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { randomUUID } from 'crypto';
 import { I18nTestModule } from './i18n/i18n-test.module';
 import { WorkersModule } from './workers/workers.module';
+import { HealthModule } from './health/health.module';
 
 const infrastructureDatabaseModule = TypeOrmModule.forRootAsync({
   useClass: TypeOrmConfigService,
@@ -129,6 +130,7 @@ const infrastructureDatabaseModule = TypeOrmModule.forRootAsync({
     MailerModule,
     HomeModule,
     WorkersModule,
+    HealthModule,
     ...(process.env.NODE_ENV !== 'production' ? [I18nTestModule] : []),
   ],
   providers: [
