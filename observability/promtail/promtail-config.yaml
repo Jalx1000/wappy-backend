@@ -1,0 +1,55 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  # Read logs from all containers via Docker socket
+  - job_name: docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+        filters:
+          - name: status
+            values: ["running"]
+    relabel_configs:
+      # Use container name as the job label
+      - source_labels: [__meta_docker_container_name]
+        regex: "/(.*)"
+        target_label: container
+      # Capture compose service name
+      - source_labels: [__meta_docker_container_label_com_docker_compose_service]
+        target_label: service
+      # Capture compose project name
+      - source_labels: [__meta_docker_container_label_com_docker_compose_project]
+        target_label: compose_project
+      # Only scrape containers in the wappy projects
+      - source_labels: [__meta_docker_container_label_com_docker_compose_project]
+        regex: "02back|wappy.*"
+        action: keep
+      # Map Docker log stream to stream label
+      - source_labels: [__meta_docker_container_log_stream]
+        target_label: logstream
+
+    pipeline_stages:
+      # Attempt to parse JSON logs (nestjs-pino emits JSON in prod)
+      - json:
+          expressions:
+            level: level
+            msg: msg
+            req_id: req_id
+            workspace_slug: workspace_slug
+      # Map pino log levels to Loki label
+      - labels:
+          level:
+          req_id:
+          workspace_slug:
+      # Drop noisy debug lines in environments where level is present and debug
+      - drop:
+          expression: '.*"level":"debug".*'
+          drop_counter_reason: debug_log_dropped

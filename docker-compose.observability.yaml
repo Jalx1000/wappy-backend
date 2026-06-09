@@ -1,0 +1,278 @@
+# Wappy — Observability Stack
+# ADR-008: Self-hosted observability with Grafana stack + Glitchtip + Uptime Kuma
+#
+# Usage:
+#   docker compose -f docker-compose.observability.yaml up -d
+#   docker compose -f docker-compose.observability.yaml down
+#
+# Ports:
+#   :3001  Grafana          (admin / see GRAFANA_ADMIN_PASSWORD)
+#   :3100  Loki             (internal — Promtail + Grafana only)
+#   :9090  Prometheus       (internal — Grafana datasource)
+#   :3200  Tempo            (internal — OTLP receiver + Grafana datasource)
+#   :9000  Glitchtip        (admin setup at first boot: /register)
+#   :3002  Uptime Kuma      (admin setup at first boot)
+#
+# Requires:
+#   - Main stack running:  docker compose up -d
+#   - Docker socket readable by Promtail
+#
+# Env vars — copy env-example-relational to .env and fill the WAPPY-00-05 block.
+
+services:
+  # ---------------------------------------------------------------------------
+  # Grafana — visualization layer
+  # ---------------------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:latest
+    container_name: wappy-grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-wappy_grafana_dev}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: "%(protocol)s://%(domain)s:3001/"
+      GF_FEATURE_TOGGLES_ENABLE: traceqlEditor
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - loki
+      - prometheus
+      - tempo
+    networks:
+      - observability
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health | grep -q ok"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ---------------------------------------------------------------------------
+  # Loki — log aggregation
+  # ---------------------------------------------------------------------------
+  loki:
+    image: grafana/loki:latest
+    container_name: wappy-loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/loki-config.yaml
+    volumes:
+      - ./observability/loki/loki-config.yaml:/etc/loki/loki-config.yaml:ro
+      - loki_data:/loki
+    networks:
+      - observability
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3100/ready | grep -q ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # Promtail — log shipper (Docker socket → Loki)
+  # ---------------------------------------------------------------------------
+  promtail:
+    image: grafana/promtail:latest
+    container_name: wappy-promtail
+    restart: unless-stopped
+    volumes:
+      - ./observability/promtail/promtail-config.yaml:/etc/promtail/promtail-config.yaml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: -config.file=/etc/promtail/promtail-config.yaml
+    depends_on:
+      - loki
+    networks:
+      - observability
+      - wappy_default
+
+  # ---------------------------------------------------------------------------
+  # Prometheus — metrics collection
+  # ---------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: wappy-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=30d"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+      - "--web.enable-lifecycle"
+      - "--web.enable-remote-write-receiver"
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - observability
+      - wappy_default
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/ready | grep -q Prometheus"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ---------------------------------------------------------------------------
+  # Tempo — distributed tracing (OTLP receiver)
+  # ---------------------------------------------------------------------------
+  tempo:
+    image: grafana/tempo:latest
+    container_name: wappy-tempo
+    restart: unless-stopped
+    ports:
+      - "3200:3200"    # Tempo HTTP API
+      - "4317:4317"    # OTLP gRPC
+      - "4318:4318"    # OTLP HTTP
+    command: ["-config.file=/etc/tempo/tempo-config.yaml"]
+    volumes:
+      - ./observability/tempo/tempo-config.yaml:/etc/tempo/tempo-config.yaml:ro
+      - tempo_data:/var/tempo
+    depends_on:
+      - prometheus
+    networks:
+      - observability
+      - wappy_default
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3200/ready | grep -q ready"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # Glitchtip — error tracking (Sentry-compatible, open source)
+  # ---------------------------------------------------------------------------
+  glitchtip-db:
+    image: postgres:17-alpine
+    container_name: wappy-glitchtip-db
+    restart: unless-stopped
+    # No host port mapping — internal only to avoid conflicts with the main DB
+    environment:
+      POSTGRES_USER: glitchtip
+      POSTGRES_PASSWORD: glitchtip
+      POSTGRES_DB: glitchtip
+    volumes:
+      - glitchtip_db_data:/var/lib/postgresql/data
+    networks:
+      - observability
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U glitchtip"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  glitchtip-redis:
+    image: redis:7-alpine
+    container_name: wappy-glitchtip-redis
+    restart: unless-stopped
+    # No host port mapping — internal only to avoid conflicts with main Redis
+    networks:
+      - observability
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  glitchtip:
+    image: glitchtip/glitchtip:latest
+    container_name: wappy-glitchtip
+    restart: unless-stopped
+    ports:
+      - "9000:8000"
+    environment:
+      DATABASE_URL: postgres://glitchtip:glitchtip@glitchtip-db:5432/glitchtip
+      REDIS_URL: redis://glitchtip-redis:6379/0
+      SECRET_KEY: ${GLITCHTIP_SECRET_KEY:-changeme_in_production}
+      GLITCHTIP_DOMAIN: ${GLITCHTIP_DOMAIN:-http://localhost:9000}
+      DEFAULT_FROM_EMAIL: errors@wappy.dev
+      EMAIL_BACKEND: django.core.mail.backends.console.EmailBackend
+      CELERY_WORKER_CONCURRENCY: 2
+    depends_on:
+      glitchtip-db:
+        condition: service_healthy
+      glitchtip-redis:
+        condition: service_healthy
+    networks:
+      - observability
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8000/_health/ | grep -q ok || exit 1"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 60s
+
+  glitchtip-worker:
+    image: glitchtip/glitchtip:latest
+    container_name: wappy-glitchtip-worker
+    restart: unless-stopped
+    command: ./bin/run-celery-with-beat.sh
+    environment:
+      DATABASE_URL: postgres://glitchtip:glitchtip@glitchtip-db:5432/glitchtip
+      REDIS_URL: redis://glitchtip-redis:6379/0
+      SECRET_KEY: ${GLITCHTIP_SECRET_KEY:-changeme_in_production}
+      GLITCHTIP_DOMAIN: ${GLITCHTIP_DOMAIN:-http://localhost:9000}
+      CELERY_WORKER_CONCURRENCY: 2
+    depends_on:
+      glitchtip-db:
+        condition: service_healthy
+      glitchtip-redis:
+        condition: service_healthy
+    networks:
+      - observability
+
+  # ---------------------------------------------------------------------------
+  # Uptime Kuma — uptime monitoring
+  # ---------------------------------------------------------------------------
+  uptime-kuma:
+    image: louislam/uptime-kuma:latest
+    container_name: wappy-uptime-kuma
+    restart: unless-stopped
+    ports:
+      - "3002:3001"
+    volumes:
+      - uptime_kuma_data:/app/data
+    networks:
+      - observability
+      - wappy_default
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3001/api/entry-page | grep -q uptime"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+# ---------------------------------------------------------------------------
+# Volumes
+# ---------------------------------------------------------------------------
+volumes:
+  grafana_data:
+    name: wappy_grafana_data
+  loki_data:
+    name: wappy_loki_data
+  prometheus_data:
+    name: wappy_prometheus_data
+  tempo_data:
+    name: wappy_tempo_data
+  glitchtip_db_data:
+    name: wappy_glitchtip_db_data
+  uptime_kuma_data:
+    name: wappy_uptime_kuma_data
+
+# ---------------------------------------------------------------------------
+# Networks
+# ---------------------------------------------------------------------------
+networks:
+  observability:
+    name: wappy_observability
+    driver: bridge
+
+  # Shared with the main docker-compose.yaml to reach the api container for
+  # Prometheus scraping and Promtail log collection.
+  # Default project name for the 02.back directory is "02back".
+  wappy_default:
+    external: true
+    name: 02back_default

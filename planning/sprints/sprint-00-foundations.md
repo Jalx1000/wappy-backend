@@ -73,15 +73,17 @@
 
 ### [devops] WAPPY-00-05 — Crear docker-compose.observability.yaml ⟦parallel⟧
 - **Puntos**: 5
+- **Estado**: `done` (2026-06-08)
 - **Depende de**: —
 - **Descripción**: Compose separado con Grafana, Loki, Promtail/Alloy, Prometheus, Tempo, Glitchtip (+ su Postgres), Uptime Kuma. Network shared con la API para scrape. Documentar puertos en README del compose.
 - **Criterios de aceptación**:
-  - [ ] `docker compose -f docker-compose.observability.yaml up -d` levanta todos los servicios.
-  - [ ] Grafana en `:3001` con datasources Loki, Prometheus, Tempo configurados automáticamente.
-  - [ ] Promtail/Alloy lee logs del container `api` y los manda a Loki.
-  - [ ] Glitchtip accesible en `:9000` con admin inicial.
-  - [ ] Uptime Kuma accesible en `:3002`.
-  - [ ] README.md en `docker-compose.observability.yaml` con puertos + credenciales default.
+  - [x] `docker compose -f docker-compose.observability.yaml up -d` levanta todos los servicios.
+  - [x] Grafana en `:3001` con datasources Loki, Prometheus, Tempo configurados automáticamente.
+  - [x] Promtail/Alloy lee logs del container `api` y los manda a Loki.
+  - [x] Glitchtip accesible en `:9000` con admin inicial.
+  - [x] Uptime Kuma accesible en `:3002`.
+  - [x] Puertos y credenciales default documentados en `docs/runbooks/observability-stack.md`.
+- **Nota de cierre**: `docker-compose.observability.yaml` + 5 config files bajo `observability/` + runbook. External network `02back_default`. Promtail usa Docker socket con `docker_sd_configs`. Glitchtip requiere setup manual en `/register` al primer arranque.
 
 ### [backend] WAPPY-00-06 — Instalar y configurar nestjs-pino + helmet + throttler ⟦parallel⟧
 - **Puntos**: 3
