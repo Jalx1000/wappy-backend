@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    name: Lint, Build & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Unit tests
+        run: npm test -- --passWithNoTests
+
+      - name: Notify failure
+        if: failure()
+        run: |
+          echo "CI failed on branch ${{ github.ref_name }} - commit ${{ github.sha }}"
+          echo "Check: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
