@@ -1,0 +1,54 @@
+# .gitleaks.toml — Wappy backend secret scanning configuration
+#
+# Adversary model: assume this file is public. Allowlist entries are for
+# known placeholder / example values only — never allowlist real credentials.
+#
+# Paths / stopwords are reviewed per-sprint. Last reviewed: 2026-06-08.
+
+[extend]
+# Use the official gitleaks default ruleset as the base.
+useDefault = true
+
+# ---------------------------------------------------------------------------
+# Global stopwords — values that appear verbatim throughout example/test files
+# and are intentionally not real secrets.
+# ---------------------------------------------------------------------------
+[allowlist]
+description = "Wappy placeholder values and example config"
+
+# Placeholder strings that appear in env-example-relational and docker-compose
+# observability defaults. These are explicitly documented as "not real secrets".
+stopwords = [
+  "changeme_in_production",
+  "secret_for_refresh",
+  "secret_for_forgot",
+  "secret_for_confirm_email",
+  "HERE_SECRET_KEY_FROM_STEP_1",
+  "wappy_grafana_dev",
+]
+
+# Paths whose content is understood to contain only placeholder / fixture values.
+# Any real secret committed to these paths would still be a policy violation —
+# this allowlist only suppresses false positives from known example content.
+paths = [
+  # Example env file — all values are placeholders documented as dummy config.
+  # Real .env is .gitignored; this file has no production credentials.
+  '''^env-example-relational$''',
+
+  # E2E test fixtures — passwords like "secret" are test-user credentials
+  # against the ephemeral Docker test database, not production values.
+  '''^test/''',
+
+  # Documentation — may contain env var name patterns, key generation examples,
+  # and placeholder values to illustrate configuration. No live credentials.
+  '''^docs/''',
+  '''^planning/''',
+
+  # Docker Compose for the local observability stack. Credentials here are
+  # internal-only (no host port) dev defaults loaded from env-example-relational.
+  '''^docker-compose\.observability\.yaml$''',
+
+  # i18n translation files — no credentials, but contain strings that could
+  # match generic keyword patterns.
+  '''^src/i18n/''',
+]
