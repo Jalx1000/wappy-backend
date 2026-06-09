@@ -4,7 +4,7 @@ services:
     ports:
       - ${DATABASE_PORT}:5432
     volumes:
-      - boilerplate-db:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     environment:
       POSTGRES_USER: ${DATABASE_USERNAME}
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
@@ -28,6 +28,8 @@ services:
     image: redis:7-alpine
     ports:
       - 6379:6379
+    volumes:
+      - redis_data:/data
 
   api:
     build:
@@ -36,5 +38,16 @@ services:
     ports:
       - ${APP_PORT}:${APP_PORT}
 
+  # AI profile — start with: docker compose --profile ai up
+  ollama:
+    image: ollama/ollama:latest
+    profiles: [ai]
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
 volumes:
-  boilerplate-db:
+  postgres_data:
+  redis_data:
+  ollama_data:
