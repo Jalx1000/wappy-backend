@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { UsersModule } from './users/users.module';
 import { FilesModule } from './files/files.module';
 import { AuthModule } from './auth/auth.module';
@@ -22,6 +23,9 @@ import { DataSource, DataSourceOptions } from 'typeorm';
 import { AllConfigType } from './config/config.type';
 import { SessionModule } from './session/session.module';
 import { MailerModule } from './mailer/mailer.module';
+import { LoggerModule } from 'nestjs-pino';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { randomUUID } from 'crypto';
 
 const infrastructureDatabaseModule = TypeOrmModule.forRootAsync({
   useClass: TypeOrmConfigService,
@@ -44,6 +48,42 @@ const infrastructureDatabaseModule = TypeOrmModule.forRootAsync({
         googleConfig,
       ],
       envFilePath: ['.env'],
+    }),
+    LoggerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService<AllConfigType>) => {
+        const isProduction =
+          configService.get('app.nodeEnv', { infer: true }) === 'production';
+        return {
+          pinoHttp: {
+            autoLogging: true,
+            redact: [
+              'req.headers.authorization',
+              'req.body.password',
+              'req.body.token',
+              'req.body.apiKey',
+              'req.body.accessToken',
+            ],
+            genReqId: (req) =>
+              (req.headers['x-request-id'] as string) || randomUUID(),
+            transport: isProduction
+              ? undefined
+              : {
+                  target: 'pino-pretty',
+                  options: { colorize: true, singleLine: false },
+                },
+          },
+        };
+      },
+    }),
+    ThrottlerModule.forRoot({
+      throttlers: [
+        {
+          ttl: parseInt(process.env['RATE_LIMIT_TTL'] || '60', 10) * 1000,
+          limit: parseInt(process.env['RATE_LIMIT_MAX'] || '120', 10),
+        },
+      ],
     }),
     infrastructureDatabaseModule,
     I18nModule.forRootAsync({
@@ -78,6 +118,12 @@ const infrastructureDatabaseModule = TypeOrmModule.forRootAsync({
     MailModule,
     MailerModule,
     HomeModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class AppModule {}
