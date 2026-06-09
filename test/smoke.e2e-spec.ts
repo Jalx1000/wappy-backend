@@ -5,7 +5,7 @@ import { APP_URL } from './utils/constants';
 describe('Smoke', () => {
   const app = APP_URL;
 
-  it('GET /api/v1/_test/translate with x-custom-lang: en returns lang: en', () => {
+  it('should return lang: en when x-custom-lang header is en', () => {
     return request(app)
       .get('/api/v1/_test/translate')
       .set('x-custom-lang', 'en')
@@ -15,7 +15,7 @@ describe('Smoke', () => {
       });
   });
 
-  it('GET /api/v1/_test/translate with x-custom-lang: es returns lang: es', () => {
+  it('should return lang: es when x-custom-lang header is es', () => {
     return request(app)
       .get('/api/v1/_test/translate')
       .set('x-custom-lang', 'es')
@@ -25,7 +25,7 @@ describe('Smoke', () => {
       });
   });
 
-  it('GET /api/v1/_test/translate with x-custom-lang: pt-BR returns lang: pt-BR', () => {
+  it('should return lang: pt-BR when x-custom-lang header is pt-BR', () => {
     return request(app)
       .get('/api/v1/_test/translate')
       .set('x-custom-lang', 'pt-BR')
@@ -35,7 +35,7 @@ describe('Smoke', () => {
       });
   });
 
-  it('GET /metrics returns 200 with Prometheus text format', () => {
+  it('should return 200 with Prometheus text format on GET /metrics', () => {
     return request(app)
       .get('/metrics')
       .expect(200)
