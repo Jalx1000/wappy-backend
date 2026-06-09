@@ -122,3 +122,9 @@ METRICS_ENABLED=true
 
 # Outbound webhooks (HMAC signing secret for X-Wappy-Signature header)
 WEBHOOK_SIGNING_SECRET=
+
+# WAPPY-00-05 — Observability (docker-compose.observability.yaml)
+GRAFANA_ADMIN_USER=admin
+GRAFANA_ADMIN_PASSWORD=wappy_grafana_dev
+GLITCHTIP_SECRET_KEY=changeme_in_production
+GLITCHTIP_DOMAIN=http://localhost:9000

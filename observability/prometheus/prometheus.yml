@@ -1,0 +1,44 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+  external_labels:
+    environment: dev
+    project: wappy
+
+# Alertmanager configuration (placeholder — wire up when Alertmanager is added)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets: ['alertmanager:9093']
+
+# Load rules files
+# rule_files:
+#   - /etc/prometheus/rules/*.yml
+
+scrape_configs:
+  # Prometheus self-scrape
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+        labels:
+          service: prometheus
+
+  # Wappy API — /metrics exposed by @willsoto/nestjs-prometheus (WAPPY-00-10)
+  # The api container is reachable because the observability stack shares the
+  # wappy network via the external network declaration in docker-compose.observability.yaml.
+  - job_name: wappy_api
+    scrape_interval: 15s
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["api:3000"]
+        labels:
+          service: wappy-api
+          environment: dev
+
+  # cAdvisor — container resource metrics (optional, add cadvisor service to enable)
+  # - job_name: cadvisor
+  #   static_configs:
+  #     - targets: ["cadvisor:8080"]
+  #       labels:
+  #         service: cadvisor
