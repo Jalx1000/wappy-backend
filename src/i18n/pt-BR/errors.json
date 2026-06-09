@@ -1,0 +1,7 @@
+{
+  "common": {
+    "notFound": "Recurso não encontrado",
+    "unauthorized": "Não autorizado",
+    "validationFailed": "Validação falhou"
+  }
+}

@@ -26,6 +26,7 @@ import { MailerModule } from './mailer/mailer.module';
 import { LoggerModule } from 'nestjs-pino';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { randomUUID } from 'crypto';
+import { I18nTestModule } from './i18n/i18n-test.module';
 
 const infrastructureDatabaseModule = TypeOrmModule.forRootAsync({
   useClass: TypeOrmConfigService,
@@ -118,6 +119,7 @@ const infrastructureDatabaseModule = TypeOrmModule.forRootAsync({
     MailModule,
     MailerModule,
     HomeModule,
+    ...(process.env.NODE_ENV !== 'production' ? [I18nTestModule] : []),
   ],
   providers: [
     {
